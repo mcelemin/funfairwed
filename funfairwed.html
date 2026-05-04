@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎰 Process Roulette</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0a0e1a;color:#e8eaf6;min-height:100vh;overflow-x:hidden}
+.main-wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+
+/* Header */
+.game-header{text-align:center;padding:40px 24px 32px}
+.game-header h1{font-size:clamp(28px,5vw,42px);font-weight:900;color:#ffd700;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px}
+.game-header .subtitle{color:rgba(255,255,255,.5);font-size:14px;letter-spacing:2px}
+
+/* Glass card */
+.glass-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:24px;margin-bottom:24px}
+
+/* User info */
+.user-grid{display:table;width:100%}
+.user-grid>div{display:table-cell;width:50%;padding:0 8px}
+.field-label{display:block;font-size:11px;font-weight:700;color:#ffd700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px}
+.field-input{width:100%;padding:12px 16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#e8eaf6;font-size:14px;outline:none}
+.field-input:focus{border-color:#ffd700}
+.field-input::placeholder{color:rgba(255,255,255,.25)}
+
+/* Scoring */
+.score-grid{display:table;width:100%}
+.score-item{display:table-cell;width:25%;text-align:center;padding:16px 8px}
+.score-item .pts{display:block;font-size:22px;font-weight:900;color:#ffd700}
+.score-item .pts-label{font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px;margin-top:4px;display:block}
+
+/* Wheel */
+.wheel-section{text-align:center;padding:20px 0 10px}
+.wheel-container{position:relative;display:inline-block;margin-bottom:28px}
+canvas#rouletteCanvas{border-radius:50%;display:block}
+.wheel-pointer{position:absolute;top:-20px;left:50%;transform:translateX(-50%);z-index:10;width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-top:32px solid #ffd700;filter:drop-shadow(0 0 10px rgba(255,215,0,.6))}
+.spin-btn{background:linear-gradient(135deg,#ffd700,#e6a800);color:#0d1f3c;border:none;padding:16px 48px;border-radius:40px;font-size:18px;font-weight:900;cursor:pointer;text-transform:uppercase;letter-spacing:3px;box-shadow:0 4px 20px rgba(255,215,0,.3);transition:all .25s}
+.spin-btn:hover{transform:scale(1.06);box-shadow:0 6px 30px rgba(255,215,0,.5)}
+.spin-btn:disabled{background:#333;color:#666;cursor:not-allowed;box-shadow:none;transform:none}
+
+/* Category reveal */
+.category-reveal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:2000;background:rgba(0,0,0,.85);justify-content:center;align-items:center;flex-direction:column}
+.category-reveal.show{display:flex}
+.reveal-text{font-size:clamp(36px,8vw,64px);font-weight:900;text-transform:uppercase;letter-spacing:6px;animation:revealPop .6s ease-out}
+.reveal-sub{font-size:16px;color:rgba(255,255,255,.5);letter-spacing:3px;margin-top:12px;text-transform:uppercase;animation:revealFade .4s ease-out .3s both}
+@keyframes revealPop{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:scale(1)}}
+@keyframes revealFade{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* Questions panel */
+.questions-panel{display:none;margin-bottom:24px}
+.questions-panel.show{display:block}
+.category-badge{display:inline-block;padding:8px 24px;border-radius:24px;font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:white;margin-bottom:24px}
+
+/* Timer */
+.timer-bar{background:linear-gradient(135deg,#1a2f5e,#0d1f3c);border-radius:10px;padding:14px 20px;margin-bottom:24px;display:table;width:100%;border:1px solid rgba(255,255,255,.08)}
+.timer-bar>div{display:table-cell;vertical-align:middle}
+.timer-label{color:rgba(255,255,255,.7);font-size:13px;font-weight:700}
+#timerDisplay{font-size:22px;font-weight:900;letter-spacing:3px;text-align:right}
+.timer-green{color:#2dc653}.timer-yellow{color:#ffd700}.timer-red{color:#e63946}
+
+/* Question blocks */
+.question-block{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:20px 24px;margin-bottom:16px;border-left:4px solid #0077b6;animation:slideUp .5s ease-out both}
+.question-block.optional{border-left-color:#f77f00}
+.question-block.correct-block{border-left-color:#2dc653!important;background:rgba(45,198,83,.06)!important}
+.question-block.incorrect-block{border-left-color:#e63946!important;background:rgba(230,57,70,.06)!important}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.question-block:nth-child(2){animation-delay:.1s}
+.question-block:nth-child(3){animation-delay:.2s}
+.question-block:nth-child(4){animation-delay:.3s}
+
+.question-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px}
+.question-tag.required{color:#0077b6}.question-tag.optional{color:#f77f00}
+.question-text{font-size:15px;font-weight:700;margin:0 0 16px;line-height:1.6}
+
+.mc-options{list-style:none}
+.mc-options li{margin-bottom:8px}
+.mc-options label{display:block;cursor:pointer;font-size:13px;color:rgba(255,255,255,.7);padding:12px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.02);transition:all .2s}
+.mc-options label:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.15);color:#e8eaf6}
+.mc-options label.selected{background:rgba(0,119,182,.15);border-color:rgba(0,119,182,.4);color:#e8eaf6}
+.mc-options label.correct-opt{background:rgba(45,198,83,.15)!important;border-color:rgba(45,198,83,.5)!important;color:#2dc653!important}
+.mc-options label.incorrect-opt{background:rgba(230,57,70,.15)!important;border-color:rgba(230,57,70,.5)!important;color:#e63946!important}
+.mc-options input[type="radio"]{accent-color:#0077b6;width:16px;height:16px;vertical-align:middle;margin-right:8px}
+
+.open-answer{width:100%;padding:12px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#e8eaf6;font-size:13px;resize:vertical;min-height:90px;font-family:inherit;outline:none}
+.open-answer:focus{border-color:#f77f00}
+.open-answer::placeholder{color:rgba(255,255,255,.2)}
+
+.feedback-badge{display:inline-block;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;margin-top:12px;opacity:0;transition:opacity .3s}
+.feedback-badge.correct{background:rgba(45,198,83,.15);color:#2dc653;opacity:1}
+.feedback-badge.incorrect{background:rgba(230,57,70,.15);color:#e63946;opacity:1}
+
+.submit-btn{background:linear-gradient(135deg,#2dc653,#1a9e3f);color:white;border:none;padding:16px 48px;border-radius:40px;font-size:16px;font-weight:800;cursor:pointer;text-transform:uppercase;letter-spacing:2px;box-shadow:0 4px 20px rgba(45,198,83,.3);transition:all .25s;display:block;margin:24px auto 0}
+.submit-btn:hover{transform:scale(1.04)}
+
+/* Result panel */
+.result-panel{display:none;text-align:center;padding:48px 32px;margin-bottom:24px;background:linear-gradient(135deg,#1a2f5e,#0d1f3c);border:1px solid rgba(255,215,0,.15);border-radius:16px}
+.result-panel.show{display:block}
+.result-panel h2{font-size:28px;font-weight:900;color:#ffd700;text-transform:uppercase;letter-spacing:3px;margin-bottom:8px}
+.result-panel .result-sub{color:rgba(255,255,255,.6);font-size:14px;margin-bottom:32px}
+.result-score-num{font-size:64px;font-weight:900;color:#ffd700;display:block;line-height:1}
+.result-score-label{color:rgba(255,255,255,.5);font-size:11px;text-transform:uppercase;letter-spacing:1.5px;margin-top:8px;display:block;margin-bottom:32px}
+.result-breakdown{display:table;margin:0 auto 32px;border-spacing:12px}
+.result-breakdown>div{display:table-cell;padding:12px 20px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);text-align:center}
+.bd-val{display:block;font-size:20px;font-weight:900}
+.bd-lbl{display:block;font-size:9px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+.send-btn{display:inline-block;background:linear-gradient(135deg,#ffd700,#e6a800);color:#0d1f3c;border:none;padding:16px 48px;border-radius:40px;font-size:16px;font-weight:800;cursor:pointer;text-transform:uppercase;letter-spacing:2px;text-decoration:none;box-shadow:0 4px 20px rgba(255,215,0,.3);transition:all .25s}
+.send-btn:hover{transform:scale(1.04)}
+.play-again-btn{background:transparent;border:2px solid rgba(255,255,255,.2);color:rgba(255,255,255,.5);padding:12px 32px;border-radius:40px;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:2px;transition:all .25s;margin-top:16px;display:inline-block}
+.play-again-btn:hover{border-color:#ffd700;color:#ffd700}
+
+.shake{animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+</style>
+</head>
+<body>
+
+<div class="category-reveal" id="categoryReveal">
+  <div class="reveal-text" id="revealText"></div>
+  <div class="reveal-sub" id="revealSub">Get ready to answer!</div>
+</div>
+
+<div class="main-wrap">
+
+  <!-- ===== START SCREEN ===== -->
+  <div id="startScreen">
+    <div class="game-header">
+      <h1>🎰 Process Roulette</h1>
+      <div class="subtitle">Wednesday Challenge</div>
+    </div>
+    <div class="glass-card" style="text-align:center;">
+      <div style="font-size:50px;margin:10px 0;">🎲</div>
+      <div style="line-height:1.8;color:rgba(255,255,255,.8);font-size:14px;">
+        Spin the wheel and land on a random SC category:<br>
+        <b style="color:#e63946;">Inbound</b> · <b style="color:#7209b7;">Outbound</b> · <b style="color:#f77f00;">Sortation</b> · <b style="color:#0077b6;">Problem Solve</b> · <b style="color:#2dc653;">Flow</b><br><br>
+        Answer <b style="color:#ffd700;">2 quick-fire questions</b> + <b style="color:#f77f00;">2 open scenarios</b><br>
+        The clock is ticking — think fast and respond before time runs out!<br><br>
+        <div style="display:inline-block;text-align:left;font-size:13px;color:rgba(255,255,255,.55);line-height:2;">
+          🎯 15 pts per correct answer<br>
+          ✍️ 10 pts per open answer (judged)<br>
+          ⚡ +15 pts speed bonus for fastest submission<br>
+          🏆 65 pts maximum possible
+        </div>
+      </div>
+      <div style="margin-top:20px;">
+        <div class="user-grid">
+          <div><label class="field-label">Your Amazon Login</label><input class="field-input" type="text" id="userName" placeholder="e.g. johndoe"></div>
+          <div><label class="field-label">Your Site</label><input class="field-input" type="text" id="userSite" placeholder="e.g. MAD8"></div>
+        </div>
+      </div>
+      <button class="spin-btn" style="margin-top:24px;" onclick="startGame()">🎰 LET'S SPIN!</button>
+    </div>
+  </div>
+
+  <!-- ===== GAME SCREEN ===== -->
+  <div id="gameScreen" style="display:none;">
+
+  <div class="game-header">
+    <h1>🎰 Process Roulette</h1>
+    <div class="subtitle">Spin the wheel · Answer your category · Climb the board</div>
+  </div>
+
+  <div class="wheel-section" id="wheelSection">
+    <div class="wheel-container">
+      <div class="wheel-pointer"></div>
+      <canvas id="rouletteCanvas" width="380" height="380"></canvas>
+    </div>
+    <br>
+    <button class="spin-btn" id="spinBtn" onclick="spinWheel()">🎰 SPIN THE WHEEL</button>
+  </div>
+
+  <div class="questions-panel" id="questionsPanel">
+    <div><span class="category-badge" id="categoryBadge"></span></div>
+    <div class="timer-bar"><div class="timer-label">⏱ Time elapsed</div><div id="timerDisplay" class="timer-green">00:00</div></div>
+
+    <div class="question-block" id="q1block">
+      <div class="question-tag required">● Required · Best Practice · 15 pts</div>
+      <p class="question-text" id="q1text"></p>
+      <ul class="mc-options" id="q1options"></ul>
+      <div class="feedback-badge" id="q1feedback"></div>
+    </div>
+    <div class="question-block" id="q2block">
+      <div class="question-tag required">● Required · Safety &amp; Quality · 15 pts</div>
+      <p class="question-text" id="q2text"></p>
+      <ul class="mc-options" id="q2options"></ul>
+      <div class="feedback-badge" id="q2feedback"></div>
+    </div>
+    <div class="question-block optional" id="q3block">
+      <div class="question-tag optional">★ Optional · Bonus · +10 pts</div>
+      <p class="question-text" id="q3text"></p>
+      <textarea class="open-answer" id="q3answer" placeholder="Share your thoughts... (optional)"></textarea>
+    </div>
+    <div class="question-block optional" id="q4block">
+      <div class="question-tag optional">★ Optional · Bonus · +10 pts</div>
+      <p class="question-text" id="q4text"></p>
+      <textarea class="open-answer" id="q4answer" placeholder="Share your thoughts... (optional)"></textarea>
+    </div>
+    <button class="submit-btn" id="submitBtn" onclick="submitAnswers()">✅ SUBMIT ANSWERS</button>
+  </div>
+
+  </div>
+  <!-- END gameScreen -->
+
+  <!-- ===== RESULTS SCREEN ===== -->
+  <div class="result-panel" id="resultPanel">
+    <h2>🏆 Well Played!</h2>
+    <p class="result-sub">Your answers are ready. Hit the button below to submit via email.</p>
+    <span class="result-score-num" id="scoreDisplay">0 pts</span>
+    <span class="result-score-label">Points scored (speed bonus added after ranking)</span>
+    <div class="result-breakdown">
+      <div><span class="bd-val" id="bdQ1">0</span><span class="bd-lbl">Q1 Best Practice</span></div>
+      <div><span class="bd-val" id="bdQ2">0</span><span class="bd-lbl">Q2 Safety</span></div>
+      <div><span class="bd-val" id="bdBonus">0</span><span class="bd-lbl">Bonus Open</span></div>
+    </div>
+    <a class="send-btn" id="sendMailBtn" href="#">✉ SEND MY ANSWERS</a>
+    <br>
+    <button class="play-again-btn" onclick="playAgain()">🔄 PLAY AGAIN</button>
+  </div>
+
+</div>
+
+<script>
+var questions = {
+  inbound: {
+    color:"#e63946", label:"Inbound",
+    q1:{text:"What is the most important step when receiving a pallet to ensure full traceability?",
+      options:["A) Scan it immediately upon arrival","B) Leave it at the dock and process it later","C) Count units visually and move on","D) Wait for carrier confirmation first"], correct:0},
+    q2:{text:"What is the recommended maximum stacking height for boxes in Inbound to prevent falling hazards?",
+      options:["A) As high as the ceiling allows","B) Up to the limit marker on the warehouse wall","C) Always exactly 3 metres","D) It depends on the shift manager"], correct:1},
+    q3:"Describe a best practice you apply daily in Inbound to reduce receiving errors.",
+    q4:"What would you do if you detect a damaged pallet upon arrival? Walk us through the process step by step."
+  },
+  outbound: {
+    color:"#7209b7", label:"Outbound",
+    q1:{text:"Which action most effectively reduces misships in Outbound?",
+      options:["A) Work faster to hit CPH targets","B) Verify the scan of every package before loading","C) Trust the system without double-checking","D) Only check oversized packages"], correct:1},
+    q2:{text:"What should you do if the system flags a package as 'problem solve' during loading?",
+      options:["A) Ignore it and keep loading","B) Load it anyway to avoid stopping the line","C) Remove it and take it to the Problem Solve area","D) Leave it on the floor for the next shift"], correct:2},
+    q3:"How do you personally contribute to reducing the late shipment rate in your area?",
+    q4:"Describe a situation where you caught an error in Outbound and explain how you resolved it."
+  },
+  sortation: {
+    color:"#f77f00", label:"Sortation",
+    q1:{text:"What is the most common cause of a missort and how is it best prevented?",
+      options:["A) Excessive speed — by reducing your CPH","B) Lack of breaks — by taking more pauses","C) Misread labels — by always re-scanning before placing","D) System errors — nothing can be done"], correct:2},
+    q2:{text:"If a conveyor belt stops unexpectedly, what is your first action?",
+      options:["A) Try to restart it manually","B) Reach in to remove the obstruction","C) Notify your manager and do not touch the machinery","D) Move to another area without reporting it"], correct:2},
+    q3:"What process improvement would you propose to reduce missorts in your Sortation area?",
+    q4:"Describe how you maintain quality standards when volume is exceptionally high."
+  },
+  problemsolve: {
+    color:"#0077b6", label:"Problem Solve",
+    q1:{text:"What is the correct order of steps when resolving a package in Problem Solve?",
+      options:["A) Open it directly to inspect the contents","B) Identify, investigate in the system, act, document","C) Send it to returns without investigating","D) Wait for your manager to handle it"], correct:1},
+    q2:{text:"What information is essential to record when handling a damaged package?",
+      options:["A) Only the tracking number","B) Tracking number, damage description, action taken and timestamp","C) The carrier name only","D) No documentation is needed"], correct:1},
+    q3:"Describe the most complex case you have resolved in Problem Solve and what you learned from it.",
+    q4:"What criteria do you use to prioritise which packages to resolve first when volume is high?"
+  },
+  flow: {
+    color:"#2dc653", label:"Flow",
+    q1:{text:"Which metric is most relevant for measuring warehouse flow efficiency?",
+      options:["A) The number of associates working","B) Throughput per hour while maintaining quality","C) The speed of the conveyor belts","D) The number of breaks taken per shift"], correct:1},
+    q2:{text:"If you spot a bottleneck causing a dangerous build-up, what do you do first?",
+      options:["A) Ignore it and maintain your own pace","B) Speed up to compensate on your own","C) Communicate it immediately to the shift manager","D) Wait until the next briefing to mention it"], correct:2},
+    q3:"How do you adapt your working style when volume significantly exceeds planned capacity?",
+    q4:"Propose a flow improvement you have identified in your area and explain how you would implement it."
+  }
+};
+
+var categories=["Inbound","Outbound","Sortation","Problem\nSolve","Flow"];
+var categoryKeys=["inbound","outbound","sortation","problemsolve","flow"];
+var colors=["#e63946","#7209b7","#f77f00","#0077b6","#2dc653"];
+var currentAngle=0, isSpinning=false, selectedCategory=null;
+var timerInterval=null, startTime=null, elapsedSeconds=0;
+
+// ── DRAW WHEEL ──
+function drawWheel(angle){
+  var c=document.getElementById("rouletteCanvas"), ctx=c.getContext("2d");
+  var cx=c.width/2, cy=c.height/2, r=cx-14, slice=2*Math.PI/5;
+  ctx.clearRect(0,0,c.width,c.height);
+  // Outer ring
+  ctx.beginPath();ctx.arc(cx,cy,r+12,0,2*Math.PI);
+  ctx.fillStyle='#0d1f3c';ctx.fill();
+  ctx.beginPath();ctx.arc(cx,cy,r+4,0,2*Math.PI);
+  ctx.strokeStyle='rgba(255,215,0,0.4)';ctx.lineWidth=2;ctx.stroke();
+  // Tick marks
+  for(var t=0;t<40;t++){var ta=t/40*Math.PI*2;ctx.beginPath();ctx.moveTo(cx+Math.cos(ta)*(r+4),cy+Math.sin(ta)*(r+4));ctx.lineTo(cx+Math.cos(ta)*(r+10),cy+Math.sin(ta)*(r+10));ctx.strokeStyle='rgba(255,215,0,0.2)';ctx.lineWidth=t%5===0?2:1;ctx.stroke();}
+  // Slices
+  var icons=["📦","🚚","🔀","🔧","⚡"];
+  for(var i=0;i<5;i++){
+    var sa=angle+i*slice, ea=sa+slice;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,sa,ea);ctx.closePath();
+    ctx.fillStyle=colors[i];ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=2;ctx.stroke();
+    // Label
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(sa+slice/2);
+    ctx.textAlign="right";ctx.fillStyle="white";ctx.font="bold 14px 'Segoe UI',sans-serif";
+    ctx.shadowColor="rgba(0,0,0,0.5)";ctx.shadowBlur=6;
+    var lines=categories[i].split("\n");
+    if(lines.length===1){ctx.fillText(lines[0],r-22,5);}
+    else{ctx.fillText(lines[0],r-22,-5);ctx.fillText(lines[1],r-22,13);}
+    ctx.shadowBlur=0;ctx.restore();
+    // Icon
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(sa+slice/2);
+    ctx.font="18px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";
+    ctx.fillText(icons[i],r*0.45,0);ctx.restore();
+  }
+  // Centre
+  ctx.beginPath();ctx.arc(cx,cy,32,0,2*Math.PI);ctx.fillStyle='#0d1f3c';ctx.fill();
+  ctx.strokeStyle='rgba(255,215,0,0.6)';ctx.lineWidth=3;ctx.stroke();
+  ctx.fillStyle='#ffd700';ctx.font="bold 20px 'Segoe UI',sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";
+  ctx.fillText("?",cx,cy);
+}
+drawWheel(0);
+
+// ── START GAME ──
+function startGame(){
+  var name=document.getElementById("userName").value.trim();
+  var site=document.getElementById("userSite").value.trim();
+  if(!name||!site){alert('Please enter your login and site!');return;}
+  document.getElementById("startScreen").style.display="none";
+  document.getElementById("gameScreen").style.display="block";
+  drawWheel(0);
+}
+
+// ── SPIN ──
+function spinWheel(){
+  if(isSpinning)return;
+  isSpinning=true;
+  document.getElementById("spinBtn").disabled=true;
+  document.getElementById("questionsPanel").classList.remove('show');
+  document.getElementById("questionsPanel").style.display='none';
+  document.getElementById("resultPanel").classList.remove('show');
+  document.getElementById("resultPanel").style.display='none';
+
+  var extraSpins=6+Math.random()*6;
+  var targetAngle=currentAngle+(extraSpins*2*Math.PI);
+  var duration=5000, animStart=null, startAngle=currentAngle;
+
+  function animate(ts){
+    if(!animStart)animStart=ts;
+    var p=Math.min((ts-animStart)/duration,1);
+    var ease=1-Math.pow(1-p,4);
+    currentAngle=startAngle+(targetAngle-startAngle)*ease;
+    drawWheel(currentAngle);
+    if(p<1){requestAnimationFrame(animate);}
+    else{currentAngle=currentAngle%(2*Math.PI);isSpinning=false;detectCategory();}
+  }
+  requestAnimationFrame(animate);
+}
+
+function detectCategory(){
+  var slice=2*Math.PI/5;
+  var pa=(Math.PI*1.5-currentAngle)%(2*Math.PI);
+  if(pa<0)pa+=2*Math.PI;
+  var idx=Math.floor(pa/slice)%5;
+  selectedCategory=categoryKeys[idx];
+  showCategoryReveal(selectedCategory);
+}
+
+// ── CATEGORY REVEAL ──
+function showCategoryReveal(key){
+  var data=questions[key];
+  var overlay=document.getElementById('categoryReveal');
+  var text=document.getElementById('revealText');
+  text.textContent=data.label;
+  text.style.color=data.color;
+  text.style.textShadow='0 0 40px '+data.color+', 0 0 80px '+data.color;
+  overlay.classList.add('show');
+  setTimeout(function(){overlay.classList.remove('show');showQuestions(key);},2500);
+}
+
+// ── SHOW QUESTIONS ──
+function showQuestions(key){
+  var data=questions[key];
+  var panel=document.getElementById("questionsPanel");
+  var badge=document.getElementById("categoryBadge");
+  badge.textContent=data.label;badge.style.backgroundColor=data.color;
+
+  document.getElementById("q1text").textContent=data.q1.text;
+  buildOptions("q1",data.q1.options,data.q1.correct);
+  document.getElementById("q2text").textContent=data.q2.text;
+  buildOptions("q2",data.q2.options,data.q2.correct);
+  document.getElementById("q3text").textContent=data.q3;
+  document.getElementById("q4text").textContent=data.q4;
+  document.getElementById("q3answer").value="";
+  document.getElementById("q4answer").value="";
+
+  // Reset feedback
+  ['q1','q2'].forEach(function(q){
+    document.getElementById(q+'feedback').className='feedback-badge';
+    document.getElementById(q+'feedback').textContent='';
+    document.getElementById(q+'block').className=q==='q1'||q==='q2'?'question-block':'question-block optional';
+  });
+  document.getElementById('q1block').className='question-block';
+  document.getElementById('q2block').className='question-block';
+
+  panel.style.display="block";panel.classList.add('show');
+  setTimeout(function(){panel.scrollIntoView({behavior:"smooth",block:"start"});},100);
+  startTimer();
+}
+
+function buildOptions(qName,opts,correctIdx){
+  var ul=document.getElementById(qName+"options");ul.innerHTML="";
+  opts.forEach(function(opt,i){
+    var li=document.createElement('li');
+    var label=document.createElement('label');
+    var radio=document.createElement('input');
+    radio.type='radio';radio.name=qName;radio.value=i;
+    radio.addEventListener('change',function(){handleMCSelect(qName,i,correctIdx);});
+    label.appendChild(radio);label.appendChild(document.createTextNode(' '+opt));
+    li.appendChild(label);ul.appendChild(li);
+  });
+}
+
+function handleMCSelect(qName,selectedIdx,correctIdx){
+  var labels=document.getElementById(qName+'options').querySelectorAll('label');
+  var fb=document.getElementById(qName+'feedback');
+  var block=document.getElementById(qName+'block');
+  for(var i=0;i<labels.length;i++)labels[i].className='';
+  if(selectedIdx===correctIdx){
+    labels[selectedIdx].className='correct-opt';
+    fb.className='feedback-badge correct';fb.textContent='✓ Correct! +15 pts';
+    block.className='question-block correct-block';
+  }else{
+    labels[selectedIdx].className='incorrect-opt';
+    labels[correctIdx].className='correct-opt';
+    fb.className='feedback-badge incorrect';fb.textContent='✗ Incorrect — correct answer highlighted';
+    block.className='question-block incorrect-block';
+  }
+}
+
+// ── TIMER ──
+function startTimer(){
+  if(timerInterval)clearInterval(timerInterval);
+  startTime=Date.now();
+  var display=document.getElementById("timerDisplay");display.className='timer-green';
+  timerInterval=setInterval(function(){
+    elapsedSeconds=Math.floor((Date.now()-startTime)/1000);
+    var m=Math.floor(elapsedSeconds/60),s=elapsedSeconds%60;
+    display.textContent=(m<10?"0":"")+m+":"+(s<10?"0":"")+s;
+    display.className=elapsedSeconds<60?'timer-green':elapsedSeconds<180?'timer-yellow':'timer-red';
+  },1000);
+}
+
+// ── SUBMIT ──
+function submitAnswers(){
+  var name=document.getElementById("userName").value.trim();
+  var site=document.getElementById("userSite").value.trim();
+  if(!name||!site)return;
+  var data=questions[selectedCategory];
+  var q1sel=document.querySelector('input[name="q1"]:checked');
+  var q2sel=document.querySelector('input[name="q2"]:checked');
+  if(!q1sel||!q2sel){document.getElementById('submitBtn').classList.add('shake');setTimeout(function(){document.getElementById('submitBtn').classList.remove('shake');},500);return;}
+
+  clearInterval(timerInterval);
+  var q1ok=parseInt(q1sel.value)===data.q1.correct;
+  var q2ok=parseInt(q2sel.value)===data.q2.correct;
+  var score=(q1ok?15:0)+(q2ok?15:0);
+  var q3a=document.getElementById("q3answer").value.trim();
+  var q4a=document.getElementById("q4answer").value.trim();
+  var bonus=(q3a?10:0)+(q4a?10:0);
+  var total=score+bonus;
+
+  document.getElementById("questionsPanel").classList.remove('show');
+  document.getElementById("questionsPanel").style.display='none';
+  var rp=document.getElementById("resultPanel");rp.style.display='block';rp.classList.add('show');
+
+  document.getElementById('bdQ1').textContent=q1ok?'+15':'0';
+  document.getElementById('bdQ1').style.color=q1ok?'#2dc653':'#e63946';
+  document.getElementById('bdQ2').textContent=q2ok?'+15':'0';
+  document.getElementById('bdQ2').style.color=q2ok?'#2dc653':'#e63946';
+  document.getElementById('bdBonus').textContent='+'+bonus;
+  document.getElementById('bdBonus').style.color=bonus>0?'#ffd700':'rgba(255,255,255,0.3)';
+  document.getElementById("scoreDisplay").textContent=total+' pts';
+
+  rp.scrollIntoView({behavior:"smooth",block:"center"});
+
+  // Build mailto
+  var now=new Date();
+  var ts=now.toLocaleDateString("en-GB")+" "+now.toLocaleTimeString("en-GB");
+  var te=document.getElementById("timerDisplay").textContent;
+  var subject=encodeURIComponent("[Process Roulette] "+name+" | "+site+" | "+data.label);
+  var body="PROCESS ROULETTE SUBMISSION\n================================"+
+    "\nLogin: "+name+"\nSite: "+site+"\nCategory: "+data.label+
+    "\nSubmitted: "+ts+"\nTime elapsed: "+te+
+    "\n\n--- REQUIRED QUESTIONS ---"+
+    "\n\nQ1: "+data.q1.text+"\nAnswer: "+data.q1.options[parseInt(q1sel.value)]+
+    "\nResult: "+(q1ok?"CORRECT (+15 pts)":"INCORRECT (0 pts)")+
+    "\n\nQ2: "+data.q2.text+"\nAnswer: "+data.q2.options[parseInt(q2sel.value)]+
+    "\nResult: "+(q2ok?"CORRECT (+15 pts)":"INCORRECT (0 pts)")+
+    "\n\n--- BONUS QUESTIONS ---"+
+    "\n\nBonus Q1: "+data.q3+"\nAnswer: "+(q3a||"(not answered)")+
+    "\n\nBonus Q2: "+data.q4+"\nAnswer: "+(q4a||"(not answered)")+
+    "\n\n--- SCORE ---\nClosed: "+score+" pts\nBonus: "+bonus+" pts\nSpeed bonus: TBD\nTOTAL: "+total+" pts\n================================";
+  document.getElementById("sendMailBtn").href="mailto:mcelemin@amazon.es?subject="+subject+"&body="+encodeURIComponent(body);
+}
+
+function playAgain(){
+  document.getElementById("resultPanel").classList.remove('show');
+  document.getElementById("resultPanel").style.display='none';
+  document.getElementById("gameScreen").style.display='none';
+  document.getElementById("startScreen").style.display='block';
+  document.getElementById("spinBtn").disabled=false;
+  selectedCategory=null;
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+</script>
+</body>
+</html>
